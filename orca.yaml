@@ -1,0 +1,298 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spin-orca
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-orca
+spec:
+  selector:
+    app: spin
+    cluster: spin-orca
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 8083
+    targetPort: 8083
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spin-orca-config-files
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-orca
+type: Opaque
+stringData:
+  spinnaker.yml: |
+    services:
+      clouddriver:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver.spinnaker:7002
+        enabled: true
+      clouddriverCaching:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-caching.spinnaker:7002
+        enabled: false
+      clouddriverRo:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-ro.spinnaker:7002
+        enabled: false
+      clouddriverRoDeck:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-ro-deck.spinnaker:7002
+        enabled: false
+      clouddriverRw:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-rw.spinnaker:7002
+        enabled: false
+      deck:
+        host: 0.0.0.0
+        port: 9000
+        baseUrl: http://localhost:9000
+        enabled: true
+      echo:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo.spinnaker:8089
+        enabled: true
+      echoScheduler:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo-scheduler.spinnaker:8089
+        enabled: false
+      echoWorker:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo-worker.spinnaker:8089
+        enabled: false
+      fiat:
+        host: 0.0.0.0
+        port: 7003
+        baseUrl: http://spin-fiat.spinnaker:7003
+        enabled: false
+      front50:
+        host: 0.0.0.0
+        port: 8080
+        baseUrl: http://spin-front50.spinnaker:8080
+        enabled: true
+      gate:
+        host: 0.0.0.0
+        port: 8084
+        baseUrl: http://localhost:8084
+        enabled: true
+      igor:
+        host: 0.0.0.0
+        port: 8088
+        baseUrl: http://spin-igor.spinnaker:8088
+        enabled: false
+      kayenta:
+        host: 0.0.0.0
+        port: 8090
+        baseUrl: http://spin-kayenta.spinnaker:8090
+        enabled: false
+      orca:
+        host: 0.0.0.0
+        port: 8083
+        baseUrl: http://spin-orca.spinnaker:8083
+        enabled: true
+      redis:
+        host: 0.0.0.0
+        port: 6379
+        baseUrl: redis://spin-redis.spinnaker:6379
+        enabled: false
+      rosco:
+        host: 0.0.0.0
+        port: 8087
+        baseUrl: http://spin-rosco.spinnaker:8087
+        enabled: false
+      monitoringDaemon:
+        host: 0.0.0.0
+        port: 8008
+        baseUrl: http://spin-monitoring-daemon.spinnaker:8008
+        enabled: false
+
+    global.spinnaker.timezone: America/Los_Angeles
+
+  orca.yml: |
+    integrations:
+      gremlin:
+        baseUrl: https://api.gremlin.com/v1
+        enabled: false
+
+    pipelineTemplate.enabled: false
+    pipelineTemplates.enabled: false
+
+    server:
+      address: ${services.orca.host:localhost}
+      port: ${services.orca.port:8083}
+
+    spectator:
+      applicationName: ${spring.application.name}
+      webEndpoint:
+        enabled: false
+
+    spinnaker:
+      extensibility:
+        plugins: {}
+        plugins-root-path: /opt/orca/plugins
+        repositories: {}
+        strict-plugin-loading: false
+
+    webhook:
+      trust:
+        enabled: false
+
+  orca-local.yml: |
+    archaius:
+      fixedDelayPollingScheduler:
+        delayMills: 2147483647
+        initialDelayMills: 2147483647
+
+    sql:
+      enabled: true
+      connectionPools:
+        default:
+          default: true
+          jdbcUrl: jdbc:mysql://spin-mysql.spinnaker:3306/orca?useSSL=false&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
+          password: password
+          user: orca_service
+      migration:
+        jdbcUrl: jdbc:mysql://spin-mysql.spinnaker:3306/orca?useSSL=false&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
+        password: password
+        user: orca_migrate
+
+    executionRepository:
+      sql:
+        enabled: true
+      redis:
+        enabled: false
+
+    monitor:
+      activeExecutions:
+        redis: false
+
+    keiko:
+      queue:
+        sql:
+          enabled: true
+        redis:
+          enabled: false
+
+    queue:
+      zombieCheck:
+        enabled: true
+      pendingExecutionService:
+        sql:
+          enabled: true
+        redis:
+          enabled: false
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spin-orca-scripts
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-orca
+type: Opaque
+stringData:
+  shutdown.sh: |
+    wget --header="content-type: application/json"  --post-data='{"enabled": "false"}' http://localhost:8083/admin/instance/enabled
+    sleep 30
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spin-orca
+  namespace: spinnaker
+  annotations:
+    moniker.spinnaker.io/application: '"spin"'
+    moniker.spinnaker.io/cluster: '"orca"'
+  labels:
+    app: spin
+    cluster: spin-orca
+    app.kubernetes.io/name: orca
+    app.kubernetes.io/managed-by: armory
+    app.kubernetes.io/part-of: spinnaker
+    app.kubernetes.io/version: 2.28.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spin
+      cluster: spin-orca
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app: spin
+        cluster: spin-orca
+        app.kubernetes.io/name: orca
+        app.kubernetes.io/managed-by: armory
+        app.kubernetes.io/part-of: spinnaker
+        app.kubernetes.io/version: 2.28.0
+    spec:
+      containers:
+      - name: orca
+        image: docker.io/armory/orca:2.28.0
+        ports:
+        - containerPort: 8083
+        readinessProbe:
+          exec:
+            command:
+            - wget
+            - --no-check-certificate
+            - --spider
+            - -q
+            - http://localhost:8083/health
+        livenessProbe: null
+        startupProbe:
+          exec:
+            command:
+            - wget
+            - --no-check-certificate
+            - --spider
+            - -q
+            - http://localhost:8083/health
+          initialDelaySeconds: 60
+          periodSeconds: 5
+        securityContext: null
+        volumeMounts:
+        - name: spin-orca-config-files
+          mountPath: /opt/spinnaker/config
+        - name: spin-orca-scripts
+          mountPath: /opt/spinnaker/scripts
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - /opt/spinnaker/scripts/shutdown.sh
+        env:
+        - name: JAVA_OPTS
+          value: -XX:MaxRAMPercentage=50.0
+        - name: SPRING_PROFILES_ACTIVE
+          value: local
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - name: spin-orca-config-files
+        secret:
+          secretName: spin-orca-config-files
+      - name: spin-orca-scripts
+        secret:
+          secretName: spin-orca-scripts

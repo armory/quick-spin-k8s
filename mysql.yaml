@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-files
+  namespace: spinnaker
+data:
+  init.sql: |
+    CREATE DATABASE `clouddriver` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE `front50` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE `orca` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE DATABASE `fiat` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+    CREATE USER 'clouddriver_service'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON clouddriver.* To 'clouddriver_service'@'%';
+
+    CREATE USER 'clouddriver_migrate'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON clouddriver.* To 'clouddriver_migrate'@'%';
+
+
+    CREATE USER 'front50_service'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON front50.* To 'front50_service'@'%';
+
+    CREATE USER 'front50_migrate'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON front50.* To 'front50_migrate'@'%';
+
+
+    CREATE USER 'orca_service'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON orca.* To 'orca_service'@'%';
+
+    CREATE USER 'orca_migrate'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON orca.* To 'orca_migrate'@'%';
+
+
+    CREATE USER 'fiat_service'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON fiat.* To 'fiat_service'@'%';
+
+    CREATE USER 'fiat_migrate'@'%' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON fiat.* To 'fiat_migrate'@'%';
+
+    FLUSH PRIVILEGES;
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  namespace: spinnaker
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/mysql"
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: spinnaker
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: spin-mysql
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-mysql
+spec:
+  selector:
+    app: spin
+    cluster: spin-mysql
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 3306
+    targetPort: 3306
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spin-mysql
+  namespace: spinnaker
+  annotations:
+    moniker.spinnaker.io/application: '"spin"'
+    moniker.spinnaker.io/cluster: '"mysql"'
+  labels:
+    app: spin
+    cluster: spin-mysql
+    app.kubernetes.io/name: mysql
+    app.kubernetes.io/managed-by: armory
+    app.kubernetes.io/part-of: spinnaker
+    app.kubernetes.io/version: 2.28.0
+spec:
+  selector:
+    matchLabels:
+      app: spin
+      cluster: spin-mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app: spin
+        cluster: spin-mysql
+        app.kubernetes.io/name: mysql
+        app.kubernetes.io/managed-by: armory
+        app.kubernetes.io/part-of: spinnaker
+        app.kubernetes.io/version: 2.28.0
+    spec:
+      containers:
+      - image: mysql:8.0.29
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+        - name: mysql-config-files
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+      - name: mysql-config-files
+        configMap:
+          name: mysql-config-files

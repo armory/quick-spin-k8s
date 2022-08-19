@@ -1,0 +1,244 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spin-deck
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-deck
+  annotations: null
+spec:
+  selector:
+    app: spin
+    cluster: spin-deck
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 9000
+    targetPort: 9000
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spin-deck-config-files
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-deck
+type: Opaque
+stringData:
+  settings.js: |
+    'use strict';
+
+    var gateHost = 'http://localhost:8084';
+    var atlasWebComponentsUrl = '';
+    var authEnabled = 'false' === 'true';
+    var authEndpoint = gateHost + '/auth/user';
+    var bakeryDetailUrl = gateHost + '/bakery/logs/{{context.region}}/{{context.status.resourceId}}';
+    var canaryFeatureDisabled = 'false' !== 'true';
+    var canaryStagesEnabled = '{%canary.stages%}' === 'true';
+    var chaosEnabled = 'false' === 'true';
+    var defaultCanaryJudge = '{%canary.defaultJudge%}';
+    var defaultMetricsStore = '{%canary.defaultMetricsStore%}';
+    var defaultMetricsAccountName = '{%canary.defaultMetricsAccount%}';
+    var defaultStorageAccountName = '{%canary.defaultStorageAccount%}';
+    var fiatEnabled = 'false' === 'true';
+    var mineCanaryEnabled = 'false' === 'true';
+    var pipelineTemplatesEnabled = 'false' === 'true';
+    var reduxLoggerEnabled = '{%canary.reduxLogger%}' === 'true';
+    var showAllConfigsEnabled = '{%canary.showAllCanaryConfigs%}' === 'true';
+    var slack = {
+      botName: '',
+      enabled: 'false' === 'true',
+    };
+    var sms = {
+      enabled: 'false' === 'true',
+    };
+    var githubStatus = {
+      enabled: 'false' === 'true',
+    };
+    var templatesEnabled = '{%canary.templatesEnabled%}' === 'true';
+    var timezone = 'America/Los_Angeles';
+    var version = '2.27.3';
+
+    // Cloud Providers
+    var appengine = {
+      defaults: {
+        account: '',
+      },
+    };
+    var oracle = {
+      defaults: {
+        account: '{%oracle.default.account%}',
+        bakeryRegions: '{%oracle.default.bakeryRegions%}',
+        region: '{%oracle.default.region%}',
+      },
+    };
+    var aws = {
+      defaults: {
+        account: '',
+        region: '{%aws.default.region%}',
+      },
+    };
+    var azure = {
+      defaults: {
+        account: '',
+        region: 'westus',
+      },
+    };
+    var cloudfoundry = {
+      defaults: {
+        account: '',
+      },
+    };
+    var dcos = {
+      defaults: {
+        account: '',
+      },
+    };
+    var ecs = {
+      defaults: {
+        account: '',
+      },
+    };
+    var gce = {
+      defaults: {
+        account: '',
+        region: 'us-central1',
+        zone: 'us-central1-f',
+      },
+    };
+    var huaweicloud = {
+      defaults: {
+        account: '',
+        region: '{%huaweicloud.default.region%}',
+      },
+    };
+    var tencentcloud = {
+      defaults: {
+        account: '',
+        region: '{%tencentcloud.default.region%}',
+      },
+    };
+
+    window.spinnakerSettings = {
+      authEnabled: authEnabled,
+      authEndpoint: authEndpoint,
+      bakeryDetailUrl: bakeryDetailUrl,
+      canary: {
+        atlasWebComponentsUrl: atlasWebComponentsUrl,
+        defaultJudge: defaultCanaryJudge,
+        featureDisabled: canaryFeatureDisabled,
+        reduxLogger: reduxLoggerEnabled,
+        metricsAccountName: defaultMetricsAccountName,
+        metricStore: defaultMetricsStore,
+        showAllConfigs: showAllConfigsEnabled,
+        stagesEnabled: canaryStagesEnabled,
+        storageAccountName: defaultStorageAccountName,
+        templatesEnabled: templatesEnabled,
+      },
+      defaultInstancePort: 80,
+      defaultTimeZone: timezone, // see http://momentjs.com/timezone/docs/#/data-utilities/
+      feature: {
+        canary: mineCanaryEnabled,
+        chaosMonkey: chaosEnabled,
+        fiatEnabled: fiatEnabled,
+        pipelineTemplates: pipelineTemplatesEnabled,
+        roscoMode: true,
+      },
+      gateUrl: gateHost,
+      notifications: {
+        bearychat: {
+          enabled: true,
+        },
+        email: {
+          enabled: true,
+        },
+        githubStatus: githubStatus,
+        googlechat: {
+          enabled: true,
+        },
+        microsoftteams: {
+          enabled: true,
+        },
+        pubsub: {
+          enabled: true,
+        },
+        slack: slack,
+        sms: sms,
+      },
+      providers: {
+        appengine: appengine,
+        aws: aws,
+        azure: azure,
+        cloudfoundry: cloudfoundry,
+        dcos: dcos,
+        ecs: ecs,
+        gce: gce,
+        huaweicloud: huaweicloud,
+        kubernetes: {},
+        oracle: oracle,
+        tencentcloud: tencentcloud,
+      },
+      version: version,
+    };
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spin-deck
+  namespace: spinnaker
+  annotations:
+    moniker.spinnaker.io/application: '"spin"'
+    moniker.spinnaker.io/cluster: '"deck"'
+  labels:
+    app: spin
+    cluster: spin-deck
+    app.kubernetes.io/name: deck
+    app.kubernetes.io/managed-by: armory
+    app.kubernetes.io/part-of: spinnaker
+    app.kubernetes.io/version: 2.28.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spin
+      cluster: spin-deck
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app: spin
+        cluster: spin-deck
+        app.kubernetes.io/name: deck
+        app.kubernetes.io/managed-by: armory
+        app.kubernetes.io/part-of: spinnaker
+        app.kubernetes.io/version: 2.28.0
+    spec:
+      containers:
+      - name: deck
+        image: docker.io/armory/deck:2.28.0
+        ports:
+        - containerPort: 9000
+        readinessProbe:
+          initialDelaySeconds: null
+          tcpSocket:
+            port: 9000
+        livenessProbe: null
+        startupProbe:
+          initialDelaySeconds: null
+          tcpSocket:
+            port: 9000
+        securityContext: null
+        volumeMounts:
+        - name: spin-deck-config-files
+          mountPath: /opt/spinnaker/config
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - name: spin-deck-config-files
+        secret:
+          secretName: spin-deck-config-files

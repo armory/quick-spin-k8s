@@ -1,0 +1,282 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spin-echo
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-echo
+spec:
+  selector:
+    app: spin
+    cluster: spin-echo
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 8089
+    targetPort: 8089
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spin-echo-config-files
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-echo
+type: Opaque
+stringData:
+  spinnaker.yml: |
+    services:
+      clouddriver:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver.spinnaker:7002
+        enabled: true
+      clouddriverCaching:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-caching.spinnaker:7002
+        enabled: false
+      clouddriverRo:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-ro.spinnaker:7002
+        enabled: false
+      clouddriverRoDeck:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-ro-deck.spinnaker:7002
+        enabled: false
+      clouddriverRw:
+        host: 0.0.0.0
+        port: 7002
+        baseUrl: http://spin-clouddriver-rw.spinnaker:7002
+        enabled: false
+      deck:
+        host: 0.0.0.0
+        port: 9000
+        baseUrl: http://localhost:9000
+        enabled: true
+      echo:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo.spinnaker:8089
+        enabled: true
+      echoScheduler:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo-scheduler.spinnaker:8089
+        enabled: false
+      echoWorker:
+        host: 0.0.0.0
+        port: 8089
+        baseUrl: http://spin-echo-worker.spinnaker:8089
+        enabled: false
+      fiat:
+        host: 0.0.0.0
+        port: 7003
+        baseUrl: http://spin-fiat.spinnaker:7003
+        enabled: false
+      front50:
+        host: 0.0.0.0
+        port: 8080
+        baseUrl: http://spin-front50.spinnaker:8080
+        enabled: true
+      gate:
+        host: 0.0.0.0
+        port: 8084
+        baseUrl: http://localhost:8084
+        enabled: true
+      igor:
+        host: 0.0.0.0
+        port: 8088
+        baseUrl: http://spin-igor.spinnaker:8088
+        enabled: false
+      kayenta:
+        host: 0.0.0.0
+        port: 8090
+        baseUrl: http://spin-kayenta.spinnaker:8090
+        enabled: false
+      orca:
+        host: 0.0.0.0
+        port: 8083
+        baseUrl: http://spin-orca.spinnaker:8083
+        enabled: true
+      redis:
+        host: 0.0.0.0
+        port: 6379
+        baseUrl: redis://spin-redis.spinnaker:6379
+        enabled: false
+      rosco:
+        host: 0.0.0.0
+        port: 8087
+        baseUrl: http://spin-rosco.spinnaker:8087
+        enabled: false
+      monitoringDaemon:
+        host: 0.0.0.0
+        port: 8008
+        baseUrl: http://spin-monitoring-daemon.spinnaker:8008
+        enabled: false
+
+    global.spinnaker.timezone: America/Los_Angeles
+
+  echo.yml: |
+    artifacts:
+      bitbucket:
+        accounts: []
+        enabled: false
+      gcs:
+        accounts: []
+        enabled: false
+      github:
+        accounts: []
+        enabled: false
+      gitlab:
+        accounts: []
+        enabled: false
+      gitrepo:
+        accounts: []
+        enabled: false
+      helm:
+        accounts: []
+        enabled: false
+      http:
+        accounts: []
+        enabled: false
+      maven:
+        accounts: []
+        enabled: false
+      oracle:
+        accounts: []
+        enabled: false
+      s3:
+        accounts: []
+        enabled: false
+      templates: []
+    diagnostics.enabled: true
+    diagnostics.id: armory-quick-spin-install
+    gcb:
+      accounts: []
+      enabled: false
+    github-status:
+      enabled: false
+    global.spinnaker.timezone: America/Los_Angeles
+    pubsub:
+      enabled: false
+      google:
+        enabled: false
+        publishers: []
+        pubsubType: GOOGLE
+        subscriptions: []
+    rest.enabled: true
+    server:
+      address: ${services.echo.host:localhost}
+      port: ${services.echo.port:8089}
+    slack:
+      enabled: false
+    spectator:
+      applicationName: ${spring.application.name}
+      webEndpoint:
+        enabled: false
+    spinnaker:
+      extensibility:
+        plugins: {}
+        plugins-root-path: /opt/echo/plugins
+        repositories: {}
+        strict-plugin-loading: false
+    spinnaker.baseUrl: http://localhost:9000
+    stats:
+      connectionTimeoutMillis: 3000
+      deploymentMethod:
+        type: kubernetes_operator
+        version: ""
+      enabled: true
+      endpoint: https://stats.spinnaker.io
+      instanceId: armory-quick-spin-install
+      readTimeoutMillis: 5000
+      spinnakerVersion: custom
+    stats.deploymentMethod.type: halyard
+    stats.deploymentMethod.version: operator-70c2a04
+    twilio:
+      baseUrl: https://api.twilio.com/
+      enabled: false
+
+  echo-local.yml: |
+    archaius:
+      fixedDelayPollingScheduler:
+        delayMills: 2147483647
+        initialDelayMills: 2147483647
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spin-echo
+  namespace: spinnaker
+  annotations:
+    moniker.spinnaker.io/application: '"spin"'
+    moniker.spinnaker.io/cluster: '"echo"'
+  labels:
+    app: spin
+    cluster: spin-echo
+    app.kubernetes.io/name: echo
+    app.kubernetes.io/managed-by: armory
+    app.kubernetes.io/part-of: spinnaker
+    app.kubernetes.io/version: 2.28.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spin
+      cluster: spin-echo
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app: spin
+        cluster: spin-echo
+        app.kubernetes.io/name: echo
+        app.kubernetes.io/managed-by: armory
+        app.kubernetes.io/part-of: spinnaker
+        app.kubernetes.io/version: 2.28.0
+    spec:
+      containers:
+      - name: echo
+        image: docker.io/armory/echo:2.28.0
+        ports:
+        - containerPort: 8089
+        readinessProbe:
+          exec:
+            command:
+            - wget
+            - --no-check-certificate
+            - --spider
+            - -q
+            - http://localhost:8089/health
+        livenessProbe: null
+        startupProbe:
+          exec:
+            command:
+            - wget
+            - --no-check-certificate
+            - --spider
+            - -q
+            - http://localhost:8089/health
+        securityContext: null
+        volumeMounts:
+        - name: spin-echo-config-files
+          mountPath: /opt/spinnaker/config
+        env:
+        - name: JAVA_OPTS
+          value: -XX:MaxRAMPercentage=50.0
+        - name: SPRING_PROFILES_ACTIVE
+          value: local
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - name: spin-echo-config-files
+        secret:
+          secretName: spin-echo-config-files

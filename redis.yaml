@@ -1,0 +1,68 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: spin-redis
+  namespace: spinnaker
+  labels:
+    app: spin
+    cluster: spin-redis
+  annotations: null
+spec:
+  selector:
+    app: spin
+    cluster: spin-redis
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 6379
+    targetPort: 6379
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spin-redis
+  namespace: spinnaker
+  annotations:
+    moniker.spinnaker.io/application: '"spin"'
+    moniker.spinnaker.io/cluster: '"redis"'
+  labels:
+    app: spin
+    cluster: spin-redis
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/managed-by: armory
+    app.kubernetes.io/part-of: spinnaker
+    app.kubernetes.io/version: 2.28.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spin
+      cluster: spin-redis
+  template:
+    metadata:
+      annotations: null
+      labels:
+        app: spin
+        cluster: spin-redis
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/managed-by: armory
+        app.kubernetes.io/part-of: spinnaker
+        app.kubernetes.io/version: 2.28.0
+    spec:
+      containers:
+      - name: redis
+        image: us-docker.pkg.dev/spinnaker-community/redis/redis-cluster:v2
+        ports:
+        - containerPort: 6379
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+        startupProbe:
+          tcpSocket:
+            port: 6379
+        env:
+        - name: MASTER
+          value: 'true'
+      terminationGracePeriodSeconds: 60
